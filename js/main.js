@@ -1,15 +1,22 @@
 var container;
 var camera, scene, renderer;
 var clock = new THREE.Clock();
-var imagedata, geometry, sphere;
-var spotlight = new THREE.PointLight(0xffffff);
+var imagedata
+var geometry;
+//var spotlight = new THREE.PointLight(0xffffff);
 var keyboard = new THREEx.KeyboardState();
 
 var parrotPath;
 var flamingoPath;
 
-var N = 256;
-var mixers, vertices, morphs = [];
+var N = 350;
+var mixer, morphs = [];
+var vertices = [];
+
+var t = 0.0;
+var T = 10.0
+var followParrot = false;
+var followFlamingo = false;
 
 init();
 animate();
@@ -18,15 +25,17 @@ function crGrass()
 {
     geometry = new THREE.Geometry();
  
-    for (var i=0; i < N; i++)
-        for (var j=0; j < N; j++)
+    for (var i = 0; i < N; i++)
+        for (var j = 0; j < N; j++)
         {
-            var position = getPixel( imagedata, i, j );
-            geometry.vertices.push(new THREE.Vector3( i, position/10.0, j));
+            var h = getPixel( imagedata, i, j );
+            geometry.vertices.push(new THREE.Vector3( i, h/10.0, j));
         }
 
-    for(var i = 0; i < N - 1; i++){
-        for(var j = 0; j < N - 1; j++){
+    for(var i = 0; i < (N - 1); i++)
+    {
+        for(var j = 0; j < (N - 1); j++)
+        {
             var vertex1 =  i + j * N;
             var vertex2 = (i + 1) + j * N;
             var vertex3 = i + (j + 1) * N;
@@ -53,6 +62,9 @@ function crGrass()
 
     var loader = new THREE.TextureLoader();
     var tex = loader.load( 'pics/grasstile.jpg' );
+
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(2, 2);
         
     var mat = new THREE.MeshLambertMaterial({    
         map: tex,    
@@ -60,10 +72,11 @@ function crGrass()
         side: THREE.DoubleSide 
     });
  
-    var matMesh = new THREE.Mesh(geometry, mat); 
+    var Mmesh = new THREE.Mesh(geometry, mat); 
+    Mmesh.position.set(0.0, 0.0, 0.0);
     
-    matMesh.receiveShadow = true;
-    scene.add(matMesh);
+    Mmesh.receiveShadow = true;
+    scene.add(Mmesh);
 }
 
 function crSky()
@@ -88,23 +101,31 @@ function crSky()
 function crParrot()
 {    
     var curve1 = new THREE.CubicBezierCurve3(
-        new THREE.Vector3( 30, 50, 128 ), 
-        new THREE.Vector3( 30, 50, 0 ),
-        new THREE.Vector3( 226, 50, 0 ),
-        new THREE.Vector3( 226, 50, 128)  
+        new THREE.Vector3( 60, 50, 170 ), 
+        new THREE.Vector3( 75, 50, 50 ),
+        new THREE.Vector3( 225, 50, 50 ),
+        new THREE.Vector3( 240, 50, 170)  
     );
 
     var curve2 = new THREE.CubicBezierCurve3(
-        new THREE.Vector3( 226, 50, 128),
-        new THREE.Vector3( 226, 50, 256 ),
-        new THREE.Vector3( 30, 50, 256 ),        
-        new THREE.Vector3( 30, 50, 128 )
+        new THREE.Vector3( 240, 50, 180),
+        new THREE.Vector3( 225, 50, 300 ),
+        new THREE.Vector3( 75, 50, 300 ),        
+        new THREE.Vector3( 60, 50, 180 )
     );
 
-    vertices = curve1.getPoints( 20 );
-    vertices = vertices.concat(curve2.getPoints( 20 ))
+    vertices = curve1.getPoints( 200 );
+    vertices = vertices.concat(curve2.getPoints( 200 ))
     var path = new THREE.CatmullRomCurve3(vertices);
     path.closed = true;
+
+    vertices = path.getPoints(500);
+
+    var geometry = new THREE.Geometry();
+    geometry.vertices = vertices;
+    var material = new THREE.LineBasicMaterial({color: 0xffff00});
+    var curveObject = new THREE.Line(geometry, material);
+    scene.add(curveObject);
 
     return path;
 }
@@ -112,23 +133,31 @@ function crParrot()
 function crFlamigo()
 {
     var curve1 = new THREE.CubicBezierCurve3(
-        new THREE.Vector3( 226, 100, 128), 
-        new THREE.Vector3( 226, 100, 0 ),
-        new THREE.Vector3( 30, 100, 0 ),
-        new THREE.Vector3( 30, 100, 128 )         
+        new THREE.Vector3( 66, 30, 187 ), 
+        new THREE.Vector3( 82.5, 30, 55 ),
+        new THREE.Vector3( 247.5, 30, 55 ),
+        new THREE.Vector3( 264, 30, 187)  
     );
 
     var curve2 = new THREE.CubicBezierCurve3(
-        new THREE.Vector3( 30, 100, 128 ),
-        new THREE.Vector3( 30, 100, 256 ),
-        new THREE.Vector3( 226, 100, 256 ),
-        new THREE.Vector3( 226, 100, 128)    
+        new THREE.Vector3( 264, 30, 198),
+        new THREE.Vector3( 247.5, 30, 330 ),
+        new THREE.Vector3( 82.5, 30, 330 ),        
+        new THREE.Vector3( 66, 30, 187 )
     );
 
-    vertices = curve1.getPoints( 20 );
-    vertices = vertices.concat(curve2.getPoints( 20 ))
+    vertices = curve1.getPoints( 200 );
+    vertices = vertices.concat(curve2.getPoints( 200 ))
     var path = new THREE.CatmullRomCurve3(vertices);
     path.closed = true;
+
+    vertices = path.getPoints(500);
+
+    var geometry = new THREE.Geometry();
+    geometry.vertices = vertices;
+    var material = new THREE.LineBasicMaterial({color: 0xffff00});
+    var curveObject = new THREE.Line(geometry, material);
+    scene.add(curveObject);
 
     return path;
 }
@@ -138,43 +167,44 @@ function init()
     container = document.getElementById( 'container' );
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 4000); 
-    //camera.position.set(N*2, 100, N);
     camera.position.set(N/2, N/2, N*1.5);
     camera.lookAt(new THREE.Vector3( N/2, 0, N/2));
     
     renderer = new THREE.WebGLRenderer( { antialias: false } );
     renderer.setSize( window.innerWidth, window.innerHeight );
     renderer.setClearColor( 0x0000ff, 1);
+    
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFShadowMap;
 
     container.appendChild( renderer.domElement );
     window.addEventListener( 'resize', onWindowResize, false );
- 
-    mixers = new THREE.AnimationMixer( scene );
-    
-    spotlight.position.set(N, N*2, N/2);
-    scene.add( spotlight );
 
     var light = new THREE.DirectionalLight(0xffff00);
-    light.position.set( -N, N*2, N*8 );   
+    light.position.set( N, N/2, N/2 );   
     light.target = new THREE.Object3D();
 
-    light.target.position.set( 0, 0, 0 );
+    light.target.position.set( N/2, 0, N/2 );
     scene.add(light.target);
 
     light.castShadow = true;
-    light.shadow = new THREE.LightShadow( new THREE.PerspectiveCamera( 45, 1, 1, 2500 ) );
+    light.shadow = new THREE.LightShadow( new THREE.PerspectiveCamera( 45, 1, 1, 1000 ) );
     light.shadow.bias = 0.0001;
     light.shadow.mapSize.width = 4096;
     light.shadow.mapSize.height = 4096;
 
     scene.add( light );
+
+    var helper = new THREE.CameraHelper(light.shadow.camera);
+    scene.add(helper);
+
     crSky();
 
     var canvas = document.createElement('canvas');
     var context = canvas.getContext('2d');
     var img = new Image();
+
+    mixer = new THREE.AnimationMixer(scene);
     
     img.onload = function()
     {    
@@ -182,18 +212,19 @@ function init()
         canvas.height = img.height;    
         context.drawImage(img, 0, 0 );    
         imagedata = context.getImageData(0, 0, img.width, img.height);
-       
         crGrass();
-    }
-    img.src = 'pics/plateau.jpg';
 
-    loadModel('models/Дерево/', 'Tree.obj', 'Tree.mtl');
-    loadModel('models/Пальма/', 'Palma 001.obj', 'Palma 001.mtl');       
-    
+        loadModel('models/1/', "Tree.obj", "Tree.mtl");
+        loadModel('models/2/', "Palma 001.obj", "Palma 001.mtl");
+    }
+
     parrotPath = crParrot();
     flamingoPath = crFlamigo();
+
     loadAnimatedModel('models/Parrot.glb', parrotPath);
     loadAnimatedModel('models/Flamingo.glb', flamingoPath);
+
+    img.src = 'pics/plateau.jpg';
 }
 
 function onWindowResize()
@@ -203,51 +234,66 @@ function onWindowResize()
     renderer.setSize( window.innerWidth, window.innerHeight );
 }
 
-var a = 0.0;
-var t = 0.0;
-var T = 10.0
-var followParrot = false;
-var followFlamingo = false;
-
 function animate()
 {
-    a += 0.001;
-    sphere.rotation.y = a;
-
     var delta = clock.getDelta();
-    mixers.update( delta );
+
+    mixer.update( delta );
+
+    t += delta;
+
     for ( var i = 0; i < morphs.length; i++ )
     {
         var morph = morphs[ i ];
         var pos = new THREE.Vector3();
         
-        if ( t >= T) 
-            t = 0.0;
-        
-        pos.copy(morph.route.getPointAt(t/T));
+        if ( t >= T) t = 0.0;
+        pos.copy(morph.controlled.getPointAt(t/T));
         morph.mesh.position.copy(pos);
-        t += 0.015
+        //t += 0.015
 
-        if ( t >= T) 
+        if ( (t + 0.001) >= T) 
             t = 0.0;
 
         var nextPoint = new THREE.Vector3();
-        nextPoint.copy(morph.route.getPointAt((t)/T));
+        nextPoint.copy(morph.controlled.getPointAt((t + 0.001)/T));
         morph.mesh.lookAt(nextPoint);
 
-        if (followParrot && i==0){
-            cameraFollow(morph)
+        if (followParrot && i==0)
+        {
+            var relativeCameraOffset = new THREE.Vector3(0,50,-150 );
+            var m1 = new THREE.Matrix4();
+            var m2 = new THREE.Matrix4();
+
+            m1.extractRotation(morph.mesh.matrixWorld);
+            m2.copyPosition(morph.mesh.matrixWorld);
+            m1.multiplyMatrices(m2, m1);
+
+            var cameraOffset = relativeCameraOffset.applyMatrix4(m1);
+            camera.position.copy(cameraOffset);
+            camera.lookAt(morph.mesh.position );
         }
 
-        if (followFlamingo && i==1){
-            cameraFollow(morph);
+        if (followFlamingo && i==1)
+        {
+            var relativeCameraOffset = new THREE.Vector3(0,50,-150 );
+            var m1 = new THREE.Matrix4();
+            var m2 = new THREE.Matrix4();
+
+            m1.extractRotation(morph.mesh.matrixWorld);
+            m2.copyPosition(morph.mesh.matrixWorld);
+            m1.multiplyMatrices(m2, m1);
+
+            var cameraOffset = relativeCameraOffset.applyMatrix4(m1);
+            camera.position.copy(cameraOffset);
+            camera.lookAt(morph.mesh.position );
         }
     }
 
     if (keyboard.pressed("0")){
         followParrot = false;
         followFlamingo = false;
-        camera.position.set(N*2, 100, N);
+        camera.position.set(N/2, N/2, N*1.5);
         camera.lookAt(new THREE.Vector3( N/2, 0, N/2));
     }
 
@@ -279,7 +325,7 @@ function loadModel(path, oname, mname)
         }
     };
 
-    var onError = function ( xhr ) { console.log(xhr); };
+    var onError = function ( xhr ) { };
 
     var mtlLoader = new THREE.MTLLoader();
     mtlLoader.setPath( path );
@@ -305,17 +351,19 @@ function loadModel(path, oname, mname)
             } );
 
 
-            for(var i = 0; i < 5; i++){
+            for(var i = 0; i < 10; i++)
+            {
                 var x = Math.random()*N;
                 var z = Math.random()*N;
-                var y = geometry.vertices[Math.round(x) + Math.round(z)*N].y;
+                var y = geometry.vertices[Math.round(z) + Math.round(x) * N].y;
 
                 object.position.x = x;
                 object.position.y = y;
                 object.position.z = z;
                 
 
-                var s = (Math.random() * 0.2) + 0.1;
+                var s = (Math.random() * 100) + 30;
+                s /= 400.0;
                 object.scale.set(s, s, s);
                 scene.add( object.clone());
             }
@@ -323,7 +371,7 @@ function loadModel(path, oname, mname)
     });
 }
 
-function loadAnimatedModel(path, route)
+function loadAnimatedModel(path, controlled)
 {
     var loader = new THREE.GLTFLoader();
 
@@ -331,22 +379,26 @@ function loadAnimatedModel(path, route)
         var mesh = gltf.scene.children[ 0 ];
         var clip = gltf.animations[ 0 ];
 
-        mixers.clipAction( clip, mesh ).setDuration( 1 ).startAt( 0 ).play();
+        mixer.clipAction( clip, mesh ).setDuration( 1 ).startAt( 0 ).play();
         
-        mesh.position.set(N/2, 50, N/2);
+        mesh.position.set(N/2, N/5, N/2);
         mesh.rotation.y = Math.PI / 8;
-        mesh.scale.set( 0.1, 0.1, 0.1 );
+        mesh.scale.set( 0.2, 0.2, 0.2 );
 
         mesh.castShadow = true;
-        mesh.receiveShadow = true;
+        //mesh.receiveShadow = true;
 
         scene.add( mesh );
 
         model = {};
         model.mesh = mesh;
-        model.route = route;
-
+        model.controlled = controlled;
         morphs.push( model );
+
+        //if(controlled == false)
+        //    morphs.push( mesh );
+
+        //return mesh;
     });
 }
         
@@ -355,19 +407,4 @@ function getPixel( imagedata, x, y )
 {    
     var position = ( x + imagedata.width * y ) * 4, data = imagedata.data;    
     return data[ position ];
-}
-
-function cameraFollow(morph)
-{
-    var relativeCameraOffset = new THREE.Vector3(0,15,-40 );
-    var m1 = new THREE.Matrix4();
-    var m2 = new THREE.Matrix4();
-
-    m1.extractRotation(morph.mesh.matrixWorld);
-    m2.copyPosition(morph.mesh.matrixWorld);
-    m1.multiplyMatrices(m2, m1);
-
-    var cameraOffset = relativeCameraOffset.applyMatrix4(m1);
-    camera.position.copy(cameraOffset);
-    camera.lookAt(morph.mesh.position );
 }
